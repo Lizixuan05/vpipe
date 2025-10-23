@@ -13,6 +13,10 @@ import shutil
 import sys
 import time
 
+# Add current directory to path for local imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.append("..")
+
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -30,7 +34,6 @@ from utils import is_main_process, format_step
 import h5py
 import numpy as np
 
-sys.path.append("..")
 import runtime
 import lamb
 from schedulers import PolyWarmUpScheduler

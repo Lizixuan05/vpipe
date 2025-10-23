@@ -29,9 +29,13 @@ from hashlib import sha256
 import sys
 from io import open
 
-import boto3
+try:
+    import boto3
+    HAS_BOTO3 = True
+except ImportError:
+    HAS_BOTO3 = False
+    
 import requests
-from botocore.exceptions import ClientError
 from tqdm import tqdm
 
 try:
@@ -147,11 +151,13 @@ def s3_request(func):
     def wrapper(url, *args, **kwargs):
         try:
             return func(url, *args, **kwargs)
-        except ClientError as exc:
-            if int(exc.response["Error"]["Code"]) == 404:
-                raise EnvironmentError("file {} not found".format(url))
-            else:
-                raise
+        except Exception as exc:
+            if HAS_BOTO3:
+                from botocore.exceptions import ClientError
+                if isinstance(exc, ClientError):
+                    if int(exc.response["Error"]["Code"]) == 404:
+                        raise EnvironmentError("file {} not found".format(url))
+            raise
 
     return wrapper
 
@@ -159,6 +165,8 @@ def s3_request(func):
 @s3_request
 def s3_etag(url):
     """Check ETag on S3 object."""
+    if not HAS_BOTO3:
+        raise ImportError("boto3 is required to download from S3. Install it with: pip install boto3")
     s3_resource = boto3.resource("s3")
     bucket_name, s3_path = split_s3_path(url)
     s3_object = s3_resource.Object(bucket_name, s3_path)
@@ -168,6 +176,8 @@ def s3_etag(url):
 @s3_request
 def s3_get(url, temp_file):
     """Pull a file directly from S3."""
+    if not HAS_BOTO3:
+        raise ImportError("boto3 is required to download from S3. Install it with: pip install boto3")
     s3_resource = boto3.resource("s3")
     bucket_name, s3_path = split_s3_path(url)
     s3_resource.Bucket(bucket_name).download_fileobj(s3_path, temp_file)

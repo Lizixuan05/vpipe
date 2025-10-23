@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
-from vpipe import Stage
-from vpipe import Transformer
+from ..vpipe import Stage
+from ..vpipe import Transformer
 
 def arch():
     return "transformer"

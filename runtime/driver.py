@@ -88,7 +88,7 @@ if __name__ == "__main__":
     assert os.path.isfile(args.config_file), args.config_file
 
     with open(args.config_file, 'r') as stream:
-        configurations = yaml.load(stream=stream)
+        configurations = yaml.load(stream=stream, Loader=yaml.FullLoader)
 
     # Check that necessary fields are filled out in the configuration file.
     assert LOG_DIR in configurations
@@ -267,11 +267,11 @@ if __name__ == "__main__":
     processes = []
     for node_rank, (node_ip, workers) in \
         enumerate(nodes_to_workers_mapping.items()):
-        docker_cmd = 'nvidia-docker run -it %(mount_directories)s ' \
-                        '--net=host ' \
-                        '--ipc=host %(container)s /bin/bash -c' % {
+        # 使用 --nv 挂载 NVIDIA 驱动，--writable-tmpfs 确保容器可写
+        singularity_cmd = 'singularity exec --nv --writable-tmpfs %(bind_directories)s ' \
+                        '%(container)s /bin/bash -c' % {
             "container": configurations[CONTAINER],
-            "mount_directories": "-v $(dirname $PWD):/workspace"
+            "bind_directories": "-B $(dirname $PWD):/workspace -B /data/run01/scw6doz:/data/run01/scw6doz"
         }
 
         log_file_path = '%s/output.log.%d' % (output_dir, node_rank)
@@ -296,9 +296,9 @@ if __name__ == "__main__":
 
         runtime_cmd_list = runtime_cmd_preamble_list + [launch_module] + runtime_cmd_list
         runtime_cmd_list.append('2>&1 | tee %s' % log_file_path)
-        runtime_cmd = "export GLOO_SOCKET_IFNAME=enp216s0; " + " ".join(runtime_cmd_list) + "; rm launch.py"
+        runtime_cmd = " ".join(runtime_cmd_list) + "; rm launch.py"
 
-        launch_cmd = '%s \'%s\'' % (docker_cmd, runtime_cmd)
+        launch_cmd = '%s \'%s\'' % (singularity_cmd, runtime_cmd)
         if node_ip != 'localhost' and node_ip != '127.0.0.1':
             launch_cmd = launch_cmd.replace('-it', '-d')
             launch_cmd = 'ssh -n %s -o StrictHostKeyChecking=no \"cd $PWD; mkdir %s; %s\"' % (node_ip,
@@ -308,11 +308,12 @@ if __name__ == "__main__":
 
         if not args.quiet:
             if node_ip != 'localhost' and node_ip != '127.0.0.1':
-                processes.append(subprocess.Popen(launch_cmd, shell=True, stdout=subprocess.PIPE))
+                processes.append(subprocess.Popen(launch_cmd, shell=True))
             else:
-                processes.insert(0, subprocess.Popen(launch_cmd, shell=True, stdout=subprocess.PIPE))
+                processes.insert(0, subprocess.Popen(launch_cmd, shell=True))
 
-    for line in processes[0].stdout:
-        sys.stdout.write(line.decode('utf-8'))
+    # 等待所有进程完成
+    for process in processes:
+        process.wait()
 
     command_history_file.close()
