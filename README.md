@@ -73,3 +73,10 @@ vPipe: 1.28 hour
 GPipe: 1.72 hour
 Pipedream: 2.14 hour
 
+-----
+# 实验室服务器复现
+相关代码已经进行适配更改，同时添加了slurm运行脚本，可丝滑复现，注意以下要点
+1. 使用Singularity代替docker
+2. 下载数据集
+3. 调整相关配置
+
